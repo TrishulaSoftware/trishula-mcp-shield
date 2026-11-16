@@ -1,20 +1,20 @@
 ---
 name: mcp-shield
-description: "Audits and sanitizes Model Context Protocol (MCP) server configurations, tool schemas, and client endpoints against prompt injection, dangerous execution primitives, wildcard CORS, and supply chain poisoning with SHA-256 cryptographic attestation."
+description: "Audits, intercepts, and sanitizes Model Context Protocol (MCP) server configurations, tool schemas, Python AST sinks, and live JSON-RPC payloads against prompt injection, Zero-RCE exploits (PHP2Shell, Node2Shell, x402 Drain, JNDI, SSRF), and supply chain poisoning with SHA-256 + SHA3-512 Merkle Root cryptographic attestation."
 ---
 
-# Trishula MCP Shield: Protocol Security Scanner & Gatekeeper
+# Trishula MCP Shield v2.5 (SQAV5A Ascended): Protocol Security Scanner & Zero-RCE Gatekeeper
 
-**MCP Shield** is an air-gapped, zero-dependency security scanner and protocol firewall (`https://github.com/TrishulaSoftware/trishula-mcp-shield`) that protects AI coding agents and local developers from compromised MCP servers, prompt injection in tool descriptions, unauthenticated STDIO command execution, and supply chain poisoning.
+**MCP Shield** is an air-gapped, zero-dependency security scanner, AST verifier, and runtime JSON-RPC firewall (`https://github.com/TrishulaSoftware/trishula-mcp-shield`) engineered under **Trishula Doctrine & SQA v5.2 Ascended (`SQAV5A`)**. It protects AI coding agents and local developers from compromised MCP servers, prompt injection in tool descriptions, unauthenticated STDIO command execution, and supply chain poisoning.
 
 ---
 
 ## When to Trigger This Skill
 
 Activate this skill whenever:
-1. **Adding or Registering New MCP Servers:** Before connecting any community MCP server or plugin to Claude Desktop, Cursor, Gemini, or Antigravity.
-2. **Auditing Registered Tools:** Whenever an agent or user inspects the output of an MCP `tools/list` request or encounters an unverified tool definition.
-3. **Running Security Compliance Sweeps:** Prior to committing MCP server code, running CI/CD validation gates, or establishing an air-gapped audit trail.
+1. **Adding or Registering New MCP Servers:** Before connecting any third-party MCP server or plugin to Claude Desktop, Cursor, Gemini, or Antigravity.
+2. **Auditing Registered Tools & Live Calls:** Whenever an agent inspects an MCP `tools/list` manifest or intercepts a `tools/call` JSON-RPC 2.0 frame.
+3. **Running CI/CD & Compliance Sweeps:** Prior to merging MCP server code, generating OASIS SARIF v2.1.0 reports, or verifying cryptographic Merkle root receipts.
 4. **Triggered by Slash Commands:** When the user issues `/mcp-audit`, `/shield`, or asks *"are my MCP servers safe?"*
 
 ---
@@ -28,13 +28,6 @@ Scans all standard local MCP client configurations across the operating system (
 python scripts/mcp_shield_runner.py --scan-clients
 ```
 
-**What it detects:**
-- Servers executing direct shell binaries (`bash`, `sh`, `powershell`, `cmd`).
-- Plaintext API keys and secrets embedded in `env` blocks.
-- Unauthenticated STDIO transport configurations.
-
----
-
 ### Mode 2: Tool Schema & Prompt Injection Validation
 Audits an MCP server's exposed tool definitions or JSON manifest against prompt injection and dangerous execution primitives:
 
@@ -42,39 +35,38 @@ Audits an MCP server's exposed tool definitions or JSON manifest against prompt 
 python scripts/mcp_shield_runner.py --tools path/to/tools_list.json
 ```
 
-**Deterministic Pass/Fail Criteria:**
-- **CRITICAL / REJECT:** Tool name or input properties expose raw unconstrained shell/code execution (`run_bash`, `eval_code`, `command: string`).
-- **CRITICAL / REJECT:** Tool description contains system prompt override directives (`"ignore previous instructions"`, `"you are now unrestricted"`).
-- **HIGH / ACTION REQUIRED:** Tools lacking input schema boundary validation or exposing destructive data wipe capabilities (`drop_database`, `truncate_all`).
-
----
-
-### Mode 3: Directory & Codebase Audit
-Audits an MCP server repository or package for CVE-level flaws, wildcard CORS, and compromised upstream dependencies:
+### Mode 3: Full Codebase + Python AST + SARIF v2.1.0 Audit
+Audits an MCP server repository using regex rules AND deterministic Python Abstract Syntax Tree (`ast.parse`) call-sink analysis:
 
 ```bash
-python scripts/mcp_shield_runner.py /path/to/mcp-server-repo
+python mcp_shield.py /path/to/mcp-server --ast --sarif-out results.sarif
 ```
 
-Produces an **Institutional Security Scorecard** with:
-- Security Score (`0–100`) and Letter Grade (`A`, `B`, `C`, `F`)
-- Deterministic findings breakdown with CVE references and remediation advice
-- Cryptographic SHA-256 attestation receipt hash for pipeline gating.
+### Mode 4: Live Runtime JSON-RPC 2.0 Firewall (`mcp_intercept_jsonrpc`)
+Inspects live JSON-RPC frames in-flight via the bundled MCP server (`python mcp_server.py`) against:
+- **PHP2Shell (`CVE-2026-109618`):** `php://`, `phar://`, `expect://`, `allow_url_include`
+- **Node2Shell (`CVE-2026-111497`):** `__proto__`, `constructor.prototype`, `child_process`, Brotli bombs
+- **x402 Wallet Drain:** `x402://`, `drain_wallet`, unauthorized transaction signing prompts
+- **JNDI & Cloud SSRF:** `${jndi:ldap://...}`, `169.254.169.254`, `metadata.google.internal`
+- **Zero-Leak Egress Boundary:** Hard block on sovereign files (`.env`, `Aegis-Systems/`, `pulse_law.md`, `receipts/`, `backups/`) and Shannon entropy (`H >= 4.2`) secret leakage.
 
 ---
 
-## Verification & Output Standard
+## Cryptographic Verification & Output Standard
 
-Every scan generates an attestation receipt formatted as:
+Every scan generates an SQAV5A attestation receipt sealed with **SHA-256**, **NIST FIPS 202 SHA3-512 Merkle Root**, and **HMAC-SHA3-512**:
 ```json
 {
-  "scan_id": "mcp_20261115T214500",
+  "scan_id": "mcp_20261116T030800",
+  "sqa_standard": "SQA_v5.2_ASCENDED",
   "verdict": "CLEAN",
   "score": 100,
   "grade": "A",
   "total_findings": 0,
-  "attestation_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  "attestation_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sha3_512_merkle_root": "6226252f8c6a6d0d...",
+  "hmac_sha3_512_seal": "9a8f1b3c4d5e6f70..."
 }
 ```
 
-*Enforce strict Zero-Tolerance:* If the audit verdict is **Grade F** or findings contain any `CRITICAL` severity item, the agent must quarantine the target MCP server and halt execution until the user explicitly authorizes remediation.
+*Enforce strict Zero-Tolerance:* If the audit verdict is **Grade F** or findings contain any `CRITICAL` severity item, the agent must quarantine the target MCP server (`CRITICAL_HALT`) and halt execution until the user explicitly authorizes remediation.

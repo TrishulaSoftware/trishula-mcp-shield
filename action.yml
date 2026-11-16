@@ -1,0 +1,66 @@
+name: "Trishula MCP Shield — Protocol Security & Zero-RCE Gate"
+author: "Trishula Software"
+description: "Zero-dependency MCP security scanner, AST verifier, tool schema validator, and SARIF 2.1.0 attestation gate."
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  target_path:
+    description: "Directory or file path to audit"
+    required: false
+    default: "."
+  tools_json:
+    description: "Optional path to MCP tools/list JSON manifest"
+    required: false
+    default: ""
+  sarif_output:
+    description: "Optional file path to write SARIF v2.1.0 report for GitHub Code Scanning"
+    required: false
+    default: "mcp-shield-results.sarif"
+  fail_on_vulnerable:
+    description: "Exit with non-zero code if security findings are detected"
+    required: false
+    default: "true"
+
+outputs:
+  verdict:
+    description: "CLEAN or VULNERABLE"
+    value: ${{ steps.scan.outputs.verdict }}
+  score:
+    description: "Security score (0-100)"
+    value: ${{ steps.scan.outputs.score }}
+  grade:
+    description: "Letter grade (A, B, C, F)"
+    value: ${{ steps.scan.outputs.grade }}
+  attestation_hash:
+    description: "SHA-256 attestation digest"
+    value: ${{ steps.scan.outputs.attestation_hash }}
+  merkle_root:
+    description: "SHA3-512 Merkle root digest"
+    value: ${{ steps.scan.outputs.merkle_root }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Trishula MCP Shield SQAV5A Gate
+      id: scan
+      shell: bash
+      run: |
+        ARGS="${{ inputs.target_path }} --markdown"
+        if [ -n "${{ inputs.tools_json }}" ]; then
+          ARGS="$ARGS --tools-json ${{ inputs.tools_json }}"
+        fi
+        if [ -n "${{ inputs.sarif_output }}" ]; then
+          ARGS="$ARGS --sarif-out ${{ inputs.sarif_output }}"
+        fi
+        if [ "${{ inputs.fail_on_vulnerable }}" = "false" ]; then
+          ARGS="$ARGS --no-fail"
+        fi
+        python "${{ github.action_path }}/mcp_shield.py" $ARGS >> "$GITHUB_STEP_SUMMARY"
+        ATTEST=$(python "${{ github.action_path }}/mcp_shield.py" "${{ inputs.target_path }}" --json --no-fail)
+        echo "verdict=$(echo "$ATTEST" | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict',''))")" >> "$GITHUB_OUTPUT"
+        echo "score=$(echo "$ATTEST" | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('score',0))")" >> "$GITHUB_OUTPUT"
+        echo "grade=$(echo "$ATTEST" | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('grade','F'))")" >> "$GITHUB_OUTPUT"
+        echo "attestation_hash=$(echo "$ATTEST" | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('attestation_hash',''))")" >> "$GITHUB_OUTPUT"
+        echo "merkle_root=$(echo "$ATTEST" | python -c "import sys,json; d=json.load(sys.stdin); print(d.get('sha3_512_merkle_root',''))")" >> "$GITHUB_OUTPUT"

