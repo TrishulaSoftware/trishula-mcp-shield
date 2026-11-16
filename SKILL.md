@@ -1,5 +1,5 @@
----
-name: mcp-shield
+﻿---
+name: trishula-mcp-shield
 description: "Audits, intercepts, and sanitizes Model Context Protocol (MCP) server configurations, tool schemas, Python AST sinks, and live JSON-RPC payloads against prompt injection, Zero-RCE exploits (PHP2Shell, Node2Shell, x402 Drain, JNDI, SSRF), and supply chain poisoning with SHA-256 + SHA3-512 Merkle Root cryptographic attestation."
 ---
 
@@ -70,3 +70,4 @@ Every scan generates an SQAV5A attestation receipt sealed with **SHA-256**, **NI
 ```
 
 *Enforce strict Zero-Tolerance:* If the audit verdict is **Grade F** or findings contain any `CRITICAL` severity item, the agent must quarantine the target MCP server (`CRITICAL_HALT`) and halt execution until the user explicitly authorizes remediation.
+
