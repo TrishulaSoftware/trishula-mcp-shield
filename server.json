@@ -1,0 +1,11 @@
+{
+  "name": "trishula-mcp-shield",
+  "version": "2.0.0",
+  "description": "Deterministic MCP Security Scanner & Tool Schema Firewall with zero dependencies and SHA-256 attestation.",
+  "author": "Trishula Software",
+  "license": "MIT",
+  "homepage": "https://github.com/TrishulaSoftware/trishula-mcp-shield",
+  "command": "python",
+  "args": ["mcp_server.py"],
+  "env": {}
+}

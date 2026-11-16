@@ -1,0 +1,3 @@
+# Trishula MCP Shield Rules
+- When configuring or registering MCP servers, run `python scripts/mcp_shield_runner.py --scan-clients` to ensure no unauthenticated shell commands or static API keys are exposed.
+- For all MCP tool additions, validate input schemas for prompt injection and raw shell execution primitives before execution.

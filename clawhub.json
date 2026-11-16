@@ -1,0 +1,9 @@
+{
+  "name": "mcp-shield",
+  "version": "2.0.0",
+  "description": "Deterministic MCP Security Scanner & Tool Schema Firewall with zero dependencies and SHA-256 attestation.",
+  "type": "skill",
+  "author": "Trishula Software",
+  "entrypoint": "scripts/mcp_shield_runner.py",
+  "skill_file": "SKILL.md"
+}

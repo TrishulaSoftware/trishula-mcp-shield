@@ -1,0 +1,9 @@
+{
+  "$schema": "https://glama.ai/mcp/schema.json",
+  "name": "trishula-mcp-shield",
+  "description": "Model Context Protocol Security Scanner & Gatekeeper — detects unsafe STDIO transport defaults, prompt injection in tool descriptions, and vulnerable MCP endpoints with zero dependencies.",
+  "repository": "https://github.com/TrishulaSoftware/trishula-mcp-shield",
+  "license": "MIT",
+  "transport": "stdio",
+  "runtime": "python"
+}
